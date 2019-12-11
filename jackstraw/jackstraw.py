@@ -155,8 +155,6 @@ http://bioinformatics.oxfordjournals.org/content/31/4/545
             comps = list(range(rank))
         elif type(comps) in [float, int]:
             comps = [int(comps)]
-
-
         # the largest component is indexed by rank - 1
         # the smallest component is index 0
         assert 0 <= min(comps) and max(comps) < rank
@@ -167,7 +165,6 @@ http://bioinformatics.oxfordjournals.org/content/31/4/545
 
         if self.seed:
             np.random.seed(self.seed)
-
         # compute observed F stats for each variable
         scores = self.get_scores(X, method, rank)
         dm = get_dm(scores)
@@ -196,7 +193,6 @@ http://bioinformatics.oxfordjournals.org/content/31/4/545
             #     F_null[s, b] = get_F_stat(response=X_perm[:, var],
             #                               explanatory=scores_perm,
             #                               in_H0=comps)
-        # return F_obs, F_null
         self.compute_pvals(F_obs=F_obs, F_null=F_null)
 
 
@@ -208,6 +204,7 @@ def get_F_vect(X, dm, dm_null, n):
     n_alt = dm.shape[1]
     n_null = dm_null.shape[1]
 
+    # https://en.wikipedia.org/wiki/F-test
     return (rss_null - rss_alt) / (n_alt - n_null) / (rss_alt / (n - n_alt))
 
 
