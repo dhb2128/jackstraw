@@ -29,10 +29,8 @@ def svd_wrapper(X, rank=None):
         U, D, V = full_svd(X, full_matrices=False)
         V = V.T
     else:
-        raise ValueError(f"Don't know how to deal with rank {rank} for matrix with shape {X.shape}")
-
-        # scipy_svds = svds(X, rank)
-        # U, D, V = fix_scipy_svds(scipy_svds)
+        scipy_svds = svds(X, rank)
+        U, D, V = fix_scipy_svds(scipy_svds)
 
     return U, D, V
 
