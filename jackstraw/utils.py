@@ -29,8 +29,8 @@ def svd_wrapper(X, rank=None):
         U, D, V = full_svd(X, full_matrices=False)
         V = V.T
     else:
-        pca = PCA(n_components = rank, random_state = 42, svd_solver='randomized')
-        U, D, V = pca._fit(X)
+        raise ValueError(f"Don't know how to deal with rank {rank} for matrix with shape {X.shape}")
+
         # scipy_svds = svds(X, rank)
         # U, D, V = fix_scipy_svds(scipy_svds)
 
@@ -90,4 +90,6 @@ def pca(X, rank=None):
     # m = np.asarray(X.mean(axis=0)).reshape(-1)
     # m = X.mean(axis=0)
     # X_cent = X - np.outer(np.ones((X.shape[0],)), m)
-    return svd_wrapper(mean_center(X), rank)
+    pca = PCA(n_components = rank, random_state = 42, svd_solver='randomized')
+    return pca._fit(X)
+    # return svd_wrapper(mean_center(X), rank)
