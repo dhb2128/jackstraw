@@ -160,15 +160,15 @@ http://bioinformatics.oxfordjournals.org/content/31/4/545
         assert 0 <= min(comps) and max(comps) < rank
         # always keep intercept
         to_keep = np.hstack((True, ~np.isin(np.arange(rank), comps)))
-        get_dm = lambda s: sm.add_constant(s[:, :rank])
-        get_null_dm = lambda dm: dm[:, to_keep]
+        self.get_dm = lambda s: sm.add_constant(s[:, :rank])
+        self.get_null_dm = lambda dm: dm[:, to_keep]
 
         if self.seed:
             np.random.seed(self.seed)
         # compute observed F stats for each variable
         scores = self.get_scores(X, method, rank)
-        dm = get_dm(scores)
-        dm_null = get_null_dm(dm)
+        dm = self.get_dm(scores)
+        dm_null = self.get_null_dm(dm)
         F_obs = get_F_vect(X, dm, dm_null, n)
         # compute null F-stats
         F_null = np.zeros((self.S, self.B))
