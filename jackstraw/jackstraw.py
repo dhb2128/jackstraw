@@ -4,8 +4,10 @@ from joblib import dump, load
 import statsmodels.api as sm
 from math import ceil
 import pandas as pd
+from tqdm import trange
+import sys
 
-from jackstraw.utils import pca, svd_wrapper
+from .utils import pca, svd_wrapper
 
 
 class Jackstraw(object):
@@ -92,6 +94,7 @@ http://bioinformatics.oxfordjournals.org/content/31/4/545
         elif method == 'pca':
             U, D, V = pca(X, rank=rank)
             return U
+            # return PCA(n_components = rank, random_state = 42, svd_solver='randomized').fit_transform(X)
 
         elif method == 'svd':
             U, D, V = svd_wrapper(X, rank=rank)
@@ -107,7 +110,7 @@ http://bioinformatics.oxfordjournals.org/content/31/4/545
                                        alpha=self.alpha)
 
         self.pvals_raw = pd.Series(self.pvals_raw, index=self.var_names)
-        self.pvals_raw = pd.Series(self.pvals_adj, index=self.var_names)
+        self.pvals_adj = pd.Series(self.pvals_adj, index=self.var_names)
         self.rejected = self.var_names[self.rejected]
 
         self.F_obs = F_obs
@@ -153,41 +156,69 @@ http://bioinformatics.oxfordjournals.org/content/31/4/545
         elif type(comps) in [float, int]:
             comps = [int(comps)]
 
+
         # the largest component is indexed by rank - 1
         # the smallest component is index 0
         assert 0 <= min(comps) and max(comps) < rank
+        # always keep intercept
+        to_keep = np.hstack((True, ~np.isin(np.arange(rank), comps)))
+        get_dm = lambda s: sm.add_constant(s[:, :rank])
+        get_null_dm = lambda dm: dm[:, to_keep]
 
         if self.seed:
             np.random.seed(self.seed)
 
         # compute observed F stats for each variable
         scores = self.get_scores(X, method, rank)
-        F_obs = np.zeros(d)
-        for j in range(d):
-            F_obs[j] = get_F_stat(response=X[:, j],
-                                  explanatory=scores,
-                                  in_H0=comps)
-
+        dm = get_dm(scores)
+        dm_null = get_null_dm(dm)
+        F_obs = get_F_vect(X, dm, dm_null, n)
         # compute null F-stats
         F_null = np.zeros((self.S, self.B))
-        for b in range(self.B):
+        print('Calculating null values')
+        sys.stdout.flush()
+        for b in trange(self.B):
             X_perm = X.copy()
-
             # permute observations of S randomly selected variables
             vars_to_perm = np.random.choice(d, size=self.S, replace=False)
-            for j in vars_to_perm:
-                X_perm[:, j] = np.random.permutation(X[:, j])
+            permed = np.apply_along_axis(np.random.permutation, 0, X[:, vars_to_perm])
+            X_perm[:, vars_to_perm] = permed
 
             # compute PCA of permuted matrix
             scores_perm = self.get_scores(X_perm, method, rank)
+            dm_perm = get_dm(scores_perm)
+            dm_perm_null = get_null_dm(dm_perm)
 
-            # compute F stats
-            for s, var in enumerate(vars_to_perm):
-                F_null[s, b] = get_F_stat(response=X_perm[:, var],
-                                          explanatory=scores_perm,
-                                          in_H0=comps)
+            F_null[:, b] = get_F_vect(permed, dm_perm, dm_perm_null, n)
 
+            # # compute F stats
+            # for s, var in enumerate(vars_to_perm):
+            #     F_null[s, b] = get_F_stat(response=X_perm[:, var],
+            #                               explanatory=scores_perm,
+            #                               in_H0=comps)
+        # return F_obs, F_null
         self.compute_pvals(F_obs=F_obs, F_null=F_null)
+
+
+
+def get_F_vect(X, dm, dm_null, n):
+    rss_alt = RSS(X, dm, n)
+    rss_null = RSS(X, dm_null, n)
+
+    n_alt = dm.shape[1]
+    n_null = dm_null.shape[1]
+
+    return (rss_null - rss_alt) / (n_alt - n_null) / (rss_alt / (n - n_alt))
+
+
+
+def RSS(dat, dm, n):
+    # residuals of linear model
+    res = (np.eye(n) - dm @ np.linalg.pinv(dm.T @ dm) @ dm.T) @ dat
+    rss = (res ** 2).sum(0)
+    rsst = ((dat - dat.mean())**2).sum(0)
+    return rss / rsst  
+
 
 
 def get_F_stat(response, explanatory, in_H0=None):
@@ -234,6 +265,8 @@ def jackstraw_hypothesis_tests(F_obs, F_null, method='fdr_bh', alpha=0.05):
     """
 
     # compute p-vals
+    # with broadcasting, but makes too large of a matrix?
+    # pvals_raw = np.greater_equal(F_null.flatten().reshape(-1, 1), F_obs).mean(0)
     pvals_raw = np.zeros(len(F_obs))
     for j in range(len(F_obs)):
         pvals_raw[j] = np.mean(F_obs[j] <= F_null)

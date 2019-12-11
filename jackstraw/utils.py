@@ -2,6 +2,7 @@ from scipy.sparse.linalg import svds
 from scipy.linalg import svd as full_svd
 from sklearn.preprocessing import scale
 import numpy as np
+from sklearn.decomposition import PCA
 
 
 def svd_wrapper(X, rank=None):
@@ -28,8 +29,10 @@ def svd_wrapper(X, rank=None):
         U, D, V = full_svd(X, full_matrices=False)
         V = V.T
     else:
-        scipy_svds = svds(X, rank)
-        U, D, V = fix_scipy_svds(scipy_svds)
+        pca = PCA(n_components = rank, random_state = 42, svd_solver='randomized')
+        U, D, V = pca._fit(X)
+        # scipy_svds = svds(X, rank)
+        # U, D, V = fix_scipy_svds(scipy_svds)
 
     return U, D, V
 
