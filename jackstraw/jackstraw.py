@@ -183,8 +183,8 @@ http://bioinformatics.oxfordjournals.org/content/31/4/545
 
             # compute PCA of permuted matrix
             scores_perm = self.get_scores(X_perm, method, rank)
-            dm_perm = get_dm(scores_perm)
-            dm_perm_null = get_null_dm(dm_perm)
+            dm_perm = self.get_dm(scores_perm)
+            dm_perm_null = self.get_null_dm(dm_perm)
 
             F_null[:, b] = get_F_vect(permed, dm_perm, dm_perm_null, n)
 
